@@ -4,7 +4,8 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "Gravit-e"
+            "comany": "Gravit-e",
+            "name": "derek"
         }
      ],
     "require": {
