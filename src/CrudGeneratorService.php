@@ -2,176 +2,149 @@
 
 namespace CrudGenerator;
 
-
-use Illuminate\Console\Command;
 use DB;
 use Artisan;
 
-class CrudGeneratorService 
+class CrudGeneratorService
 {
-    
-    public $modelName = '';
-    public $tableName = '';
-    public $prefix = '';
-    public $force = false;
-    public $layout = '';
-    public $existingModel = '';
-    public $controllerName = '';
-    public $viewFolderName = '';
-    public $output = null;
+	protected $layout;
+	protected $console;
 
- 
-    public function __construct()
-    {
+	protected $modelName;
+	protected $controllerName;
+	protected $tableName;
 
-    }
+	protected $templateData;
 
-  
-    public function Generate() 
-    {
-        $modelname = ucfirst(str_singular($this->modelName));
-        $this->viewFolderName = strtolower($this->controllerName);
+	public function __construct(\Illuminate\Console\Command $console, $modelName, $customTableName)
+	{
+		$this->console         = $console;
 
-        $this->tableName = strtolower(str_plural($this->modelName));
+		$this->modelName       = self::ModelNameConvention($modelName);
+		$this->controllerName  = self::ControllerNameConvention($modelName);
+		$this->tableName       = self::TableNameConvention(
+			$customTableName
+				? $customTableName
+				: $modelName
+		);
+	}
 
+	public function Generate()
+	{
 
-        $this->output->info('');
-        $this->output->info('Creating catalogue for table: '.($this->tableName ?: strtolower(str_plural($this->modelName))));
-        $this->output->info('Model Name: '.$modelname);
+		$this->console->info('');
+		$this->console->info("Creating $this->modelName CRUD from the $this->tableName table ");
+		$this->console->info('');
 
+		$columns = self::GetColumns($this->tableName);
 
-        $options = [
-            'model_uc' => $modelname,
-            'model_uc_plural' => str_plural($modelname),
-            'model_singular' => strtolower($modelname),
-            'model_plural' => strtolower(str_plural($modelname)),
-            'tablename' => $this->tableName ?: strtolower(str_plural($this->modelName)),
-            'prefix' => $this->prefix,
-            'custom_master' => $this->layout ?: 'crudgenerator::layouts.master',
-            'controller_name' => $this->controllerName,
-            'view_folder' => $this->viewFolderName,
-            'route_path' => $this->viewFolderName,
-        ];
+		$this->templateData = [
+			'UCModel'        => $this->modelName,
+			'UCModelPlural'  => str_plural($this->modelName),
+			'LCModel'        => strtolower($this->modelName),
+			'LCModelPlural'  => strtolower(str_plural($this->modelName)),
+			'TableName'      => $this->tableName,
+			'ViewTemplate'   => $this->layout,
+			'ControllerName' => $this->controllerName,
+			'ViewFolder'     => str_plural($this->tableName),
+			'RoutePath'      => $this->tableName,
+			'Columns'        => $columns,
+			'SearchColumn'   => $columns[1]->Field,
+			'ColumnCount'    => count($columns),
+		];
 
-        if(!$this->force) { 
-            //if(file_exists(app_path().'/'.$modelname.'.php')) { $this->output->info('Model already exists, use --force to overwrite'); return; }
-            if(file_exists(app_path().'/Http/Controllers/'.$this->controllerName.'Controller.php')) { $this->output->info('Controller already exists, use --force to overwrite'); return; }
-            if(file_exists(base_path().'/resources/views/'.$this->viewFolderName.'/add.blade.php')) { $this->output->info('Add view already exists, use --force to overwrite'); return; }
-            if(file_exists(base_path().'/resources/views/'.$this->viewFolderName.'/show.blade.php')) { $this->output->info('Show view already exists, use --force to overwrite'); return; }
-            if(file_exists(base_path().'/resources/views/'.$this->viewFolderName.'/index.blade.php')) { $this->output->info('Index view already exists, use --force to overwrite');  return; }
-        }
+		self::GenerateController();
+		self::GenerateModel();
+		self::GenerateViews();
 
+		$routes = "Route::get('$this->tableName/ajaxData', '$this->controllerName@ajaxData');\r\nRoute::resource('$this->tableName', '$this->controllerName');";
+		$this->console->info("Adding Routes: \r\n" . $routes);
+		file_put_contents(app_path() . '/Http/routes.php', "\r\n" . $routes, FILE_APPEND);
 
-        $columns = $this->createModel($modelname, $this->prefix, $this->tableName);
-        
-        $options['columns'] = $columns;
-        $options['first_column_nonid'] = count($columns) > 1 ? $columns[1]['name'] : '';
-        $options['num_columns'] = count($columns);
-        
-        //###############################################################################
-        if(!is_dir(base_path().'/resources/views/'.$this->viewFolderName)) { 
-            $this->output->info('Creating directory: '.base_path().'/resources/views/'.$this->viewFolderName);
-            mkdir( base_path().'/resources/views/'.$this->viewFolderName); 
-        }
+	}
 
+	protected function GenerateModel()
+	{
+		$this->console->info("Generating model with 'php artisan make:model $this->modelName'");
+		Artisan::call('make:model', ['name' => $this->modelName]);
+	}
 
-        $filegenerator = new \CrudGenerator\CrudGeneratorFileCreator();
-        $filegenerator->options = $options;
-        $filegenerator->output = $this->output;
+	protected function GenerateViews()
+	{
+		$path = base_path() . '/resources/views/' . $this->tableName;
+		if (!is_dir($path)) {
+			$this->console->info('Creating views directory at: ' . $path);
+			mkdir($path);
+		}
 
-        $filegenerator->templateName = 'controller';
-        $filegenerator->path = app_path().'/Http/Controllers/'.$this->controllerName.'Controller.php';
-        $filegenerator->Generate();
+		$this->templateData['Layout']    = 'layouts.app';
+		$this->templateData['RoutePath'] = $this->tableName;
 
-        $filegenerator->templateName = 'view.add';
-        $filegenerator->path = base_path().'/resources/views/'.$this->viewFolderName.'/add.blade.php';
-        $filegenerator->Generate();
+		$this->console->info('Generating View: index');
+		$controller = \View::file(__DIR__ . '/Templates/index.blade.php', $this->templateData)->render();
+		$outPath    = $path . '/index.blade.php';
+		file_put_contents($outPath, $controller);
 
-        $filegenerator->templateName = 'view.show';
-        $filegenerator->path = base_path().'/resources/views/'.$this->viewFolderName.'/show.blade.php';
-        $filegenerator->Generate();
+		$this->console->info('Generating View: create');
+		$controller = \View::file(__DIR__ . '/Templates/create.blade.php', $this->templateData)->render();
+		$outPath    = $path . '/create.blade.php';
+		file_put_contents($outPath, $controller);
 
-        $filegenerator->templateName = 'view.index';
-        $filegenerator->path = base_path().'/resources/views/'.$this->viewFolderName.'/index.blade.php';
-        $filegenerator->Generate();
-        //###############################################################################
+		$this->console->info('Generating View: show');
+		$controller = \View::file(__DIR__ . '/Templates/show.blade.php', $this->templateData)->render();
+		$outPath    = $path . '/show.blade.php';
+		file_put_contents($outPath, $controller);
 
-        $addroute = 'Route::controller(\'/'.$this->viewFolderName.'\', \''.$this->controllerName.'Controller\');';
-        $this->appendToEndOfFile(app_path().'/Http/routes.php', "\n".$addroute, 0, true);
-        $this->output->info('Adding Route: '.$addroute );
-    }
+	}
 
+	protected function GenerateController()
+	{
+		$this->console->info('Generating Controller: ' . $this->controllerName);
+		$controller = \View::file(__DIR__ . '/Templates/controller.blade.php', $this->templateData)->render();
 
-    protected function getColumns($tablename) {
-        $cols = DB::select("show columns from ".$tablename);
-        $ret = [];
-        foreach ($cols as $c) {
-            $cadd = [];
-            $cadd['name'] = $c->Field;
-            $cadd['type'] = $c->Field == 'id' ? 'id' : $this->getTypeFromDBType($c->Type);
-            $cadd['display'] = ucwords(str_replace('_', ' ', $c->Field));
-            $ret[] = $cadd;
-        }
-        return $ret;
-    }
+		$path = app_path() . '/Http/Controllers/' . $this->controllerName . '.php';
 
-    protected function getTypeFromDBType($dbtype) {
-        if(str_contains($dbtype, 'varchar')) { return 'text'; }
-        if(str_contains($dbtype, 'int') || str_contains($dbtype, 'float')) { return 'number'; }
-        if(str_contains($dbtype, 'date')) { return 'date'; }
-        return 'unknown';
-    }
+		file_put_contents($path, $controller);
 
+	}
 
+	private static function GetHtmlType($dbType)
+	{
+		if (str_contains($dbType, 'varchar')) {
+			return 'text';
+		}
+		if (str_contains($dbType, 'int') || str_contains($dbType, 'float')) {
+			return 'number';
+		}
+		if (str_contains($dbType, 'date')) {
+			return 'date';
+		}
+		return 'unknown';
+	}
 
-    protected function createModel($modelname, $prefix, $table_name) {
+	private static function GetColumns($tableName)
+	{
+		$columns = DB::select("show columns from " . $tableName);
+		foreach ($columns as $column) {
+			$column->Type = self::GetHtmlType($column->Type);
+		}
+		return $columns;
+	}
 
-        Artisan::call('make:model', ['name' => $modelname]);
-        
+	private static function ModelNameConvention($word)
+	{
+		return ucfirst(strtolower(str_singular($word)));
+	}
 
-        if($table_name) {
-            $this->output->info('Custom table name: '.$prefix.$table_name);
-            $this->appendToEndOfFile(app_path().'/'.$modelname.'.php', "    protected \$table = '".$table_name."';\n\n}", 2);
-        }
-        
+	private static function TableNameConvention($word)
+	{
+		return strtolower(str_plural($word));
+	}
 
-        $columns = $this->getColumns($prefix.($table_name ?: str_plural($modelname)));
-
-        $cc = collect($columns);
-
-        if(!$cc->contains('name', 'updated_at') || !$cc->contains('name', 'created_at')) { 
-            $this->appendToEndOfFile(app_path().'/'.$modelname.'.php', "    public \$timestamps = false;\n\n}", 2, true);
-        }
-
-        $this->output->info('Model created, columns: '.json_encode($columns));
-        return $columns;
-    }
-
-    protected function deletePreviousFiles($tablename, $existing_model) {
-        $todelete = [
-                app_path().'/Http/Controllers/'.ucfirst($tablename).'Controller.php',
-                base_path().'/resources/views/'.str_plural($tablename).'/index.blade.php',
-                base_path().'/resources/views/'.str_plural($tablename).'/add.blade.php',
-                base_path().'/resources/views/'.str_plural($tablename).'/show.blade.php',
-            ];
-        if(!$existing_model) {
-            $todelete[] = app_path().'/'.ucfirst(str_singular($tablename)).'.php'; 
-        }
-        foreach($todelete as $path) {
-            if(file_exists($path)) { 
-                unlink($path);    
-                $this->output->info('Deleted: '.$path);
-            }   
-        }
-    }
-
-    protected function appendToEndOfFile($path, $text, $remove_last_chars = 0, $dont_add_if_exist = false) {
-        $content = file_get_contents($path);
-        if(!str_contains($content, $text) || !$dont_add_if_exist) {
-            $newcontent = substr($content, 0, strlen($content)-$remove_last_chars).$text;
-            file_put_contents($path, $newcontent);    
-        }
-    }
+	private static function ControllerNameConvention($word)
+	{
+		return ucfirst(strtolower(str_plural($word))) . 'Controller';
+	}
 }
 
 

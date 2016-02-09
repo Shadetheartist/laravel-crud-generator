@@ -9,6 +9,7 @@ use Artisan;
 
 class CrudGeneratorFileCreator 
 {
+
     public $templateName = '';
     public $path = '';
     public $options = [];
@@ -76,7 +77,7 @@ class CrudGeneratorFileCreator
                 return $ret;
             }
             else {
-                return $mat;    
+                return '';
             }
             
         };
