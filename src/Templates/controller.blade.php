@@ -42,22 +42,12 @@ class {{$ControllerName}} extends Controller
 	* {{'@'}}return \Illuminate\Http\Response
 	*/
     public function store(Request $request) {
-
-        ${{$LCModel}} = null;
-        if($request->id > 0) {
-            ${{$LCModel}} = {{$UCModel}}::findOrFail($request->id); }
-        else {
-            ${{$LCModel}} = new {{$UCModel}};
-        }
-
+        ${{$LCModel}} = new {{$UCModel}};
 @foreach($Columns as $Column)
         ${{$LCModel}}->{{$Column->Field}} = $request->{{$Column->Field}};
 @endforeach
-
-        //${{$LCModel}}->user_id = $request->user()->id;
         ${{$LCModel}}->save();
         return redirect('/{{$RoutePath}}');
-
     }
 
 	/**
@@ -95,7 +85,12 @@ class {{$ControllerName}} extends Controller
 	*/
     public function update(Request $request, $id)
     {
-
+		${{$LCModel}} = {{$UCModel}}::findOrFail($id);
+@foreach($Columns as $Column)
+		${{$LCModel}}->{{$Column->Field}} = $request->{{$Column->Field}};
+@endforeach
+		${{$LCModel}}->update();
+		return redirect('/{{$RoutePath}}');
     }
 
 	/**
@@ -155,11 +150,5 @@ class {{$ControllerName}} extends Controller
 		echo json_encode($ret);
 
 	}
-
-
-
-
-
-
 
 }

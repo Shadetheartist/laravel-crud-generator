@@ -11,16 +11,21 @@
 
     <div class="panel-body">
 
-        <form action="{{'{{'}} url('/{{$RoutePath}}') }}" method="POST" class="form-horizontal">
+        {{ '@' }}if(isset(${{$LCModel}}))
+            {{'{{'}} Form::model(${{$LCModel}}, ['route' => ['{{$LCModelPlural}}.update', ${{$LCModel}}->id], 'method' => 'PUT', 'class' => 'form-horizontal']) }}
+        {{ '@' }}else
+            {{'{{'}} Form::open(['route' => '{{$LCModelPlural}}.store', 'class' => 'form-horizontal']) }}
+        {{ '@' }}endif
+
             {{'{{'}} csrf_field() }}
 
 @foreach($Columns as $Column)
 @if($Column->Type != 'unknown')
                 <div class="form-group">
-                   <label for="{{$Column->Field}}" class="col-sm-3 control-label">{{$Column->Field}}</label>
+                    {{'{{'}} Form::label('{{$Column->Field}}', '{{$Column->Field}}', ['class' => 'col-sm-3 control-label']) }}
                    <div class="col-sm-6">
-                       <input type="{{$Column->Type}}" name="{{$Column->Field}}" id="{{$Column->Field}}" class="form-control" value="{{'{{'}} ${{$LCModel}}->{{$Column->Field}}  or ''}}">
-                   </div>
+                       {{'{{'}} Form::{{$Column->Type}}('{{$Column->Field}}', null, ['class' => 'col-sm-3 form-control']) }}
+                  </div>
                </div>
 @endif
 @endforeach
@@ -33,7 +38,7 @@
                 </div>
             </div>
 
-        </form>
+        {{ Form::close() }}
     </div>
 </div>
 
