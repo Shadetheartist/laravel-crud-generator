@@ -7,6 +7,10 @@ use Artisan;
 
 class CrudGeneratorService
 {
+	//todo: make config for this
+	protected $notDisplayableList = ['created_at', 'updated_at', 'remember_token'];
+	protected $stringColumnList   = ['name', 'description'];
+
 	protected $layout;
 	protected $console;
 
@@ -16,7 +20,7 @@ class CrudGeneratorService
 
 	protected $templateData;
 
-	public function __construct(\Illuminate\Console\Command $console, $modelName, $customTableName)
+	public function __construct(\Illuminate\Console\Command $console, $modelName, $customTableName, $customLayoutName)
 	{
 		$this->console = $console;
 
@@ -27,7 +31,12 @@ class CrudGeneratorService
 				? $customTableName
 				: $modelName
 		);
+
+		$this->layout = $customLayoutName
+			? $customLayoutName
+			: 'layouts.app';
 	}
+
 	public function Generate()
 	{
 
@@ -35,32 +44,36 @@ class CrudGeneratorService
 		$this->console->info("Creating $this->modelName CRUD from the $this->tableName table ");
 		$this->console->line('');
 
-		$columns            = $this->GetColumns($this->tableName);
+		$columns = $this->GetColumns($this->tableName);
 
 		$this->templateData = [
-			'UCModel'           => $this->modelName,
-			'UCModelPlural'     => str_plural($this->modelName),
-			'LCModel'           => strtolower($this->modelName),
-			'LCModelPlural'     => strtolower(str_plural($this->modelName)),
-			'TableName'         => $this->tableName,
-			'ViewTemplate'      => $this->layout,
-			'ControllerName'    => $this->controllerName,
-			'ViewFolder'        => str_plural($this->tableName),
-			'RoutePath'         => $this->tableName,
-			'Columns'           => $columns,
-			'SearchColumn'      => $columns[1]->Field,
-			'ColumnCount'       => count($columns),
+			'UCModel'        => $this->modelName,
+			'UCModelPlural'  => str_plural($this->modelName),
+			'LCModel'        => strtolower($this->modelName),
+			'LCModelPlural'  => strtolower(str_plural($this->modelName)),
+			'TableName'      => $this->tableName,
+			'ViewTemplate'   => $this->layout,
+			'ControllerName' => $this->controllerName,
+			'ViewFolder'     => str_plural($this->tableName),
+			'RoutePath'      => $this->tableName,
+			'Columns'        => $columns,
+			'SearchColumn'   => $columns[1]->Field,
+			'ColumnCount'    => count($columns),
+			'Layout'         => $this->layout,
 		];
 
-		self::GenerateController();
-		self::GenerateModel();
-		self::GenerateViews();
+		$this->GenerateController();
+		$this->GenerateModel();
+		$this->GenerateViews();
+		$this->GenerateRoutes();
 
-		$routes = "Route::get('$this->tableName/ajaxData', '$this->controllerName@ajaxTableData');
-			   \r\nRoute::resource('$this->tableName', '$this->controllerName');";
+	}
+
+	protected function GenerateRoutes()
+	{
+		$routes = "Route::get('$this->tableName/ajaxData', '$this->controllerName@ajaxTableData');\r\nRoute::resource('$this->tableName', '$this->controllerName');";
 		$this->console->line("Adding Routes: \r\n" . $routes);
 		file_put_contents(app_path() . '/Http/routes.php', "\r\n\r\n//Made by crud generator tool on " . date('d-m-Y @ H:i:s') . "\r\n" . $routes, FILE_APPEND);
-
 	}
 
 	protected function GenerateModel()
@@ -71,30 +84,24 @@ class CrudGeneratorService
 
 	protected function GenerateViews()
 	{
-		$path = base_path() . '/resources/views/' . $this->tableName;
-		if (!is_dir($path)) {
-			$this->console->line('Creating views directory at: ' . $path);
-			mkdir($path);
+		$outputPath = base_path() . '/resources/views/' . $this->tableName;
+		if (!is_dir($outputPath)) {
+			$this->console->line('Creating views directory at: ' . $outputPath);
+			mkdir($outputPath);
 		}
 
-		$this->templateData['Layout']    = 'layouts.app';
-		$this->templateData['RoutePath'] = $this->tableName;
+		$this->GenerateView('index', $outputPath);
+		$this->GenerateView('create', $outputPath);
+		$this->GenerateView('show', $outputPath);
 
-		$this->console->line('Generating View: index');
-		$controller = \View::file(__DIR__ . '/Templates/index.blade.php', $this->templateData)->render();
-		$outPath    = $path . '/index.blade.php';
-		file_put_contents($outPath, $controller);
+	}
 
-		$this->console->line('Generating View: create');
-		$controller = \View::file(__DIR__ . '/Templates/create.blade.php', $this->templateData)->render();
-		$outPath    = $path . '/create.blade.php';
-		file_put_contents($outPath, $controller);
-
-		$this->console->line('Generating View: show');
-		$controller = \View::file(__DIR__ . '/Templates/show.blade.php', $this->templateData)->render();
-		$outPath    = $path . '/show.blade.php';
-		file_put_contents($outPath, $controller);
-
+	protected function GenerateView($viewName, $outputPath)
+	{
+		$this->console->line("Generating View: $viewName");
+		$view    = \View::file(__DIR__ . "/Templates/$viewName.blade.php", $this->templateData)->render();
+		$outPath = $outputPath . "/$viewName.blade.php";
+		file_put_contents($outPath, $view);
 	}
 
 	protected function GenerateController()
@@ -108,6 +115,37 @@ class CrudGeneratorService
 
 	}
 
+	private function GetBestStringColumn($columns)
+	{
+
+		//get all the column names
+		$columnNames = $catIds = array_map(
+			function ($o) {
+				return $o->Field;
+			},
+			$columns
+		);
+
+		//get all the columns where there is a match in the string column list defined in config
+		$nameIndexes = [];
+		foreach ($columnNames as $key => $columnName) {
+			$index = array_search($columnName, $this->stringColumnList);
+			if ($index !== false) {
+				$nameIndexes[$key] = $index;
+			}
+		}
+
+		//if theres no matches
+		if (!count($nameIndexes)) {
+			return null;
+		}
+
+		//sort the list (asc), and keep keys
+		asort($nameIndexes);
+
+		//return the best column
+		return $columns[array_keys($nameIndexes)[0]];
+	}
 
 	private function GetForeign($columnName)
 	{
@@ -116,19 +154,14 @@ class CrudGeneratorService
 		$foreignTableName = self::TableNameConvention($name);
 		$this->console->line("Attempting to link '$this->modelName' to '$foreignModelName'");
 
-		//this is not a great way to find the class, as the user could put the model in another folder/namespace and so on
+		//this mess gets the index of best column to use as the main column that users see when selecting something
 		if (class_exists('\\App\\' . $foreignModelName)) {
 			$foreignColumns = DB::select("show columns from " . $foreignTableName);
-			foreach ($foreignColumns as $column) {
-				if ($column->Field != 'id') {
-					continue;
-				}
+			if ($stringColumn = $this->GetBestStringColumn($foreignColumns)) {
 
-				//model has a column for 'id'
-				foreach ($foreignColumns as $column) {
+				//Todo: integrate this column, and make a config file for the options at the top of the page
 
-				}
-
+				//return $foreignModelName . '->' . $stringColumn->Field;
 			}
 		}
 
@@ -143,7 +176,7 @@ class CrudGeneratorService
 		$type = strtoupper($column->Type);
 
 		//should not display these by default
-		if ($type == 'TIMESTAMP' || $name == 'remember_token') {
+		if (in_array($name, $this->notDisplayableList)) {
 			return null;
 		}
 
@@ -186,7 +219,7 @@ class CrudGeneratorService
 		//@formatter:on
 	}
 
-	private function GetColumns($tableName)
+	private function GetColumns($tableName, $organizeColumns = true)
 	{
 		$columns = DB::select("show columns from " . $tableName);
 
@@ -195,7 +228,7 @@ class CrudGeneratorService
 
 		foreach ($columns as $key => $column) {
 			if ($type = $this->GetLaravelFormType($column)) {
-				if ($type == 'hidden') {
+				if ($organizeColumns && $type == 'hidden') {
 					$hiddenColumns[] = $column;
 					unset($columns[$key]);
 				}

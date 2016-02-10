@@ -48,7 +48,7 @@ class {{$ControllerName}} extends Controller
         ${{$LCModel}}->{{$Column->Field}} = $request->{{$Column->Field}};
 @endforeach
         ${{$LCModel}}->save();
-        return redirect('/{{$RoutePath}}');
+        return redirect('/{{$TableName}}');
     }
 
 	/**
@@ -91,7 +91,7 @@ class {{$ControllerName}} extends Controller
 		${{$LCModel}}->{{$Column->Field}} = $request->{{$Column->Field}};
 @endforeach
 		${{$LCModel}}->update();
-		return redirect('/{{$RoutePath}}');
+		return redirect('/{{$TableName}}');
     }
 
 	/**

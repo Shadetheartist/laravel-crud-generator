@@ -6,7 +6,7 @@
 
 <div class="panel panel-default">
     <div class="panel-heading">
-        List of {{$UCModelPlural}} | <a href="{{'{{'}}url('{{$RoutePath}}/create')}}" class="btn btn-primary" role="button">Add {{$UCModel}}</a>
+        <a href="{{'{{'}}url('{{$TableName}}/create')}}" class="btn btn-primary" role="button">Add {{$UCModel}}</a>
 
     </div>
 
@@ -64,7 +64,7 @@
 
     function delete{{$UCModel}}(id){
         if(confirm('You really want to delete this record?')){
-            var url = '{{'{{'}}url('{{$RoutePath}}')}}/';
+            var url = '{{'{{'}}url('{{$TableName}}')}}/';
 
             $.ajax({
                 url: url + id,

@@ -44,7 +44,7 @@
                     <button type="submit" class="btn btn-success">
                         <i class="fa fa-plus"></i> Save
                     </button>
-                    <a class="btn btn-default" href="{{'{{'}} url('/{{$RoutePath}}') }}"><i class="glyphicon glyphicon-chevron-left"></i> Back</a>
+                    <a class="btn btn-default" href="{{'{{'}} url('/{{$TableName}}') }}"><i class="glyphicon glyphicon-chevron-left"></i> Back</a>
                 </div>
             </div>
 
