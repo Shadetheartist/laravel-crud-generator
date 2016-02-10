@@ -21,6 +21,7 @@
                         <div class="col-sm-6">
                             @if($Column->Type == 'password')
                                 {{'{{'}} Form::{{$Column->Type}}('{{$Column->Field}}', ['class' => 'col-sm-3 form-control disabled', 'readonly' => 'readonly']) }}
+
                             @else
                                 {{'{{'}} Form::{{$Column->Type}}('{{$Column->Field}}', null, ['class' => 'col-sm-3 form-control disabled', 'readonly' => 'readonly']) }}
 

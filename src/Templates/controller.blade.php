@@ -7,6 +7,7 @@ use App\{{$UCModel}};
 use App\Http\Requests;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Input;
 
 class {{$ControllerName}} extends Controller
 {
@@ -112,42 +113,26 @@ class {{$ControllerName}} extends Controller
 	*/
 	public function ajaxTableData(Request $request)
 	{
-		$len = $_GET['length'];
-		$start = $_GET['start'];
 
-		$select = "SELECT *,1,2 ";
-		$presql = " FROM {{$TableName}} a ";
-		if($_GET['search']['value']) {
-			$presql .= " WHERE {{$SearchColumn}} LIKE '%".$_GET['search']['value']."%' ";
-		}
+		$columns = [@for($i = 0; $i < count($Columns); $i++)'{{$Columns[$i]->Field}}'@if($i != count($Columns) - 1), @endif
+	@endfor];
 
-		$presql .= "  ";
+		$search = Input::get('search')['value'];
 
-		$sql = $select.$presql." LIMIT ".$start.",".$len;
+		$count = DB::table('{{$LCModelPlural}}')->count();
+		$data  = {{$UCModel}}::where('{{$SearchColumn}}', 'LIKE', "%$search%")
+							 ->skip(Input::get('start'))
+							 ->take(Input::get('length'))
+							 ->get($columns)
+							 ->toArray();
 
+		//https://datatables.net/reference/option/
+		$response['data']                 = $data;
+		$response['recordsTotal']         = $count;
+		$response['iTotalDisplayRecords'] = $count;
+		$response['recordsFiltered'] = count($data);
 
-		$qcount = DB::select("SELECT COUNT(a.id) c".$presql);
-		//print_r($qcount);
-		$count = $qcount[0]->c;
-
-		$results = DB::select($sql);
-		$ret = [];
-		foreach ($results as $row) {
-			$r = [];
-			foreach ($row as $value) {
-				$r[] = $value;
-			}
-			$ret[] = $r;
-		}
-
-		$ret['data'] = $ret;
-		$ret['recordsTotal'] = $count;
-		$ret['iTotalDisplayRecords'] = $count;
-
-		$ret['recordsFiltered'] = count($ret);
-		$ret['draw'] = $_GET['draw'];
-
-		echo json_encode($ret);
+		echo json_encode($response);
 
 	}
 

@@ -28,7 +28,6 @@ class CrudGeneratorService
 				: $modelName
 		);
 	}
-
 	public function Generate()
 	{
 
@@ -36,21 +35,21 @@ class CrudGeneratorService
 		$this->console->info("Creating $this->modelName CRUD from the $this->tableName table ");
 		$this->console->line('');
 
-		$columns = $this->GetColumns($this->tableName);
+		$columns            = $this->GetColumns($this->tableName);
 
 		$this->templateData = [
-			'UCModel'        => $this->modelName,
-			'UCModelPlural'  => str_plural($this->modelName),
-			'LCModel'        => strtolower($this->modelName),
-			'LCModelPlural'  => strtolower(str_plural($this->modelName)),
-			'TableName'      => $this->tableName,
-			'ViewTemplate'   => $this->layout,
-			'ControllerName' => $this->controllerName,
-			'ViewFolder'     => str_plural($this->tableName),
-			'RoutePath'      => $this->tableName,
-			'Columns'        => $columns,
-			'SearchColumn'   => $columns[1]->Field,
-			'ColumnCount'    => count($columns),
+			'UCModel'           => $this->modelName,
+			'UCModelPlural'     => str_plural($this->modelName),
+			'LCModel'           => strtolower($this->modelName),
+			'LCModelPlural'     => strtolower(str_plural($this->modelName)),
+			'TableName'         => $this->tableName,
+			'ViewTemplate'      => $this->layout,
+			'ControllerName'    => $this->controllerName,
+			'ViewFolder'        => str_plural($this->tableName),
+			'RoutePath'         => $this->tableName,
+			'Columns'           => $columns,
+			'SearchColumn'      => $columns[1]->Field,
+			'ColumnCount'       => count($columns),
 		];
 
 		self::GenerateController();
@@ -108,23 +107,25 @@ class CrudGeneratorService
 		file_put_contents($path, $controller);
 
 	}
+
+
 	private function GetForeign($columnName)
 	{
-		$name = explode('_id', $columnName)[0];
+		$name             = explode('_id', $columnName)[0];
 		$foreignModelName = self::ModelNameConvention($name);
 		$foreignTableName = self::TableNameConvention($name);
 		$this->console->line("Attempting to link '$this->modelName' to '$foreignModelName'");
 
 		//this is not a great way to find the class, as the user could put the model in another folder/namespace and so on
-		if(class_exists('\\App\\' . $foreignModelName)){
+		if (class_exists('\\App\\' . $foreignModelName)) {
 			$foreignColumns = DB::select("show columns from " . $foreignTableName);
-			foreach($foreignColumns as $column){
-				if($column->Field != 'id'){
+			foreach ($foreignColumns as $column) {
+				if ($column->Field != 'id') {
 					continue;
 				}
 
 				//model has a column for 'id'
-				foreach($foreignColumns as $column){
+				foreach ($foreignColumns as $column) {
 
 				}
 
@@ -133,9 +134,10 @@ class CrudGeneratorService
 
 		return 'hidden';
 	}
+
 	private function GetLaravelFormType($column)
 	{
-		//special formattting :)
+		//special formatting :)
 		//@formatter:off
 		$name = strtolower($column->Field);
 		$type = strtoupper($column->Type);
@@ -193,7 +195,7 @@ class CrudGeneratorService
 
 		foreach ($columns as $key => $column) {
 			if ($type = $this->GetLaravelFormType($column)) {
-				if($type == 'hidden'){
+				if ($type == 'hidden') {
 					$hiddenColumns[] = $column;
 					unset($columns[$key]);
 				}
@@ -204,7 +206,6 @@ class CrudGeneratorService
 				unset($columns[$key]);
 			}
 		}
-
 
 		return array_merge($hiddenColumns, $columns);
 	}
