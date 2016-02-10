@@ -45,7 +45,7 @@
                     "render" : function(data, type, row){
                         return '<a href="{{'{{'}}url('{{$RoutePath}}')}}/' + row[0] + '">' + data + '</a>';
                     },
-                    "targets": 1
+                    "targets":  1
                 },
                 {
                     "render" : function(data, type, row){
@@ -55,7 +55,7 @@
                 },
                 {
                     "render" : function(data, type, row){
-                        return '<a onclick="return doDelete(' + row[0] + ')" class="btn btn-danger">Delete</a>';
+                        return '<a onclick="return delete{{$UCModel}}(' + row[0] + ')" class="btn btn-danger">Delete</a>';
                     },
                     "targets": {{$ColumnCount}} + 1
                 },
@@ -63,7 +63,7 @@
         });
     });
 
-    function doDelete(id){
+    function delete{{$UCModel}}(id){
         if(confirm('You really want to delete this record?')){
 
             var url = '{{'{{'}}url('{{$RoutePath}}')}}/';

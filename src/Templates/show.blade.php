@@ -12,20 +12,23 @@
     <div class="panel-body">
 
         <form class="form-horizontal">
+            {{'{{'}} Form::model(${{$LCModel}}, ['route' => ['{{$LCModelPlural}}.update', ${{$LCModel}}->id], 'method' => 'PUT', 'class' => 'form-horizontal']) }}
 
-@foreach($Columns as $Column)
-            <div class="form-group">
+            @foreach($Columns as $Column)
+                @if($Column->Type != 'hidden')
+                    <div class="form-group">
+                        {{'{{'}} Form::label('{{$Column->Field}}', '{{$Column->Field}}', ['class' => 'col-sm-3 control-label disabled', 'readonly' => 'readonly']) }}
+                        <div class="col-sm-6">
+                            @if($Column->Type == 'password')
+                                {{'{{'}} Form::{{$Column->Type}}('{{$Column->Field}}', ['class' => 'col-sm-3 form-control disabled', 'readonly' => 'readonly']) }}
+                            @else
+                                {{'{{'}} Form::{{$Column->Type}}('{{$Column->Field}}', null, ['class' => 'col-sm-3 form-control disabled', 'readonly' => 'readonly']) }}
 
-                <label for="{{$Column->Field}}" class="col-sm-3 control-label">{{$Column->Field}}</label>
-
-                <div class="col-sm-6">
-
-                    <input type="{{$Column->Type}}" name="{{$Column->Field}}" id="{{$Column->Field}}" class="form-control" value="{{'{{'}} ${{$LCModel}}->{{$Column->Field}}  or ''}}" readonly="readonly">
-
-                </div>
-
-            </div>
-@endforeach
+                            @endif
+                        </div>
+                    </div>
+                @endif
+            @endforeach
 
             <div class="form-group">
                 <div class="col-sm-offset-3 col-sm-6">

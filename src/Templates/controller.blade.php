@@ -110,7 +110,7 @@ class {{$ControllerName}} extends Controller
 	* {{'@'}}param  \Illuminate\Http\Request  $request
 	* {{'@'}}return \Illuminate\Http\Response
 	*/
-	public function ajaxData(Request $request)
+	public function ajaxTableData(Request $request)
 	{
 		$len = $_GET['length'];
 		$start = $_GET['start'];
